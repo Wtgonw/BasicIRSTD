@@ -47,20 +47,23 @@ def test():
     except:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         net.load_state_dict(torch.load(opt.pth_dir, map_location=device)['state_dict'])
-    net.eval()
-
+    net.eval()          
     with torch.no_grad():
         for idx_iter, (img, size, img_dir) in tqdm(enumerate(test_loader)):
             img = Variable(img).cuda()
-            pred = net.forward(img)
-            pred = pred[:,:,:size[0],:size[1]]        
-            ### save img
+            # 先不对大分辨率图像进行处理试一试
+            if size[0] <= 2048 and size[1] <= 2048:
+                pred = net.forward(img)
+                pred = pred[:, :, :size[0], :size[1]]
+            else:
+                pred = torch.zeros(1, 1, size[0], size[1]).cuda()
+                #
+            # ## save img
             if opt.save_img == True:
-                img_save = transforms.ToPILImage()(((pred[0,0,:,:]>opt.threshold).float()).cpu())
+                img_save = transforms.ToPILImage()(((pred[0, 0, :, :] > opt.threshold).float()).cpu())
                 if not os.path.exists(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name):
                     os.makedirs(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name)
-                img_save.save(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name + '/' + img_dir[0] + '.png')  
-    
+                img_save.save(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name + '/' + img_dir[0] + '.png')
     print('Inference Done!')
    
 if __name__ == '__main__':
