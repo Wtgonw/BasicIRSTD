@@ -56,10 +56,21 @@ def test():
                 pred = net.forward(img)
                 pred = pred[:, :, :size[0], :size[1]]
             else:
-                # pred = torch.zeros(1, 1, size[0], size[1]).cuda()
-                pred = torch.rand(1, 1, size[0], size[1]).cuda() 
+                pred = torch.zeros(1, 1, size[0], size[1])
+                split_height = size[0] // 8
+                split_width = size[1] // 8
 
-            ## save img
+                for i in range(8):
+                    for j in range(8):
+                        start_i = i * split_height
+                        end_i = min((i + 1) * split_height, size[0])
+                        start_j = j * split_width
+                        end_j = min((j + 1) * split_width, size[1])
+                        part_img = img[:, :, start_i:end_i, start_j:end_j]
+                        part_pred = net.forward(part_img.cuda())
+                        pred[:, :, start_i:end_i, start_j:end_j] = part_pred.cpu()
+
+            ### save img
             if opt.save_img == True:
                 img_save = transforms.ToPILImage()(((pred[0, 0, :, :] > opt.threshold).float()).cpu())
                 if not os.path.exists(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name):
