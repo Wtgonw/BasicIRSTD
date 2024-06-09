@@ -56,11 +56,9 @@ def test():
                 pred = net.forward(img)
                 pred = pred[:, :, :size[0], :size[1]]
             else:
-                scale_factor = max(size[0] / 2048, size[1] / 2048)
-                new_size = (int(size[0] / scale_factor), int(size[1] / scale_factor))
-                resized_img = torch.nn.functional.interpolate(img, size=new_size, mode='bilinear', align_corners=False)
-                pred_resized = net.forward(resized_img)
-                pred = torch.nn.functional.interpolate(pred_resized, size=(size[0], size[1]), mode='bilinear', align_corners=False)
+                # pred = torch.zeros(1, 1, size[0], size[1]).cuda()
+                pred = torch.rand(1, 1, size[0], size[1]).cuda() 
+
             ## save img
             if opt.save_img == True:
                 img_save = transforms.ToPILImage()(((pred[0, 0, :, :] > opt.threshold).float()).cpu())
