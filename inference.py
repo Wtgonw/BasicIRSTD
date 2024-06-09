@@ -57,17 +57,17 @@ def test():
                 pred = pred[:, :, :size[0], :size[1]]
             else:
                 pred = torch.zeros(1, 1, size[0], size[1]).cuda()
-                step_x = size[0] // 4
-                step_y = size[1] // 4
-                for i in range(4):
-                    for j in range(4):
+                step_x = size[0] // 8
+                step_y = size[1] // 8
+                for i in range(8):
+                    for j in range(8):
                         start_x = i * step_x
-                        end_x = start_x + step_x
+                        end_x = min(start_x + step_x, size[0])
                         start_y = j * step_y
-                        end_y = start_y + step_y
+                        end_y = min(start_y + step_y, size[1])
                         sub_img = img[:, :, start_x:end_x, start_y:end_y]
                         sub_pred = net.forward(sub_img)
-                        pred[:, :, start_x:end_x, start_y:end_y] = sub_pred[:, :, :step_x, :step_y]
+                        pred[:, :, start_x:end_x, start_y:end_y] = sub_pred[:, :, :(end_x - start_x), :(end_y - start_y)]
 
             if opt.save_img:
                 img_save = transforms.ToPILImage()(((pred[0, 0, :, :] > opt.threshold).float()).cpu())
