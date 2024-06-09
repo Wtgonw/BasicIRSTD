@@ -56,25 +56,19 @@ def test():
                 pred = net.forward(img)
                 pred = pred[:, :, :size[0], :size[1]]
             else:
-                pred = torch.zeros(1, 1, size[0], size[1]).cuda()
-                step_x = size[0] // 8
-                step_y = size[1] // 8
-                for i in range(8):
-                    for j in range(8):
-                        start_x = i * step_x
-                        end_x = min(start_x + step_x, size[0])
-                        start_y = j * step_y
-                        end_y = min(start_y + step_y, size[1])
-                        sub_img = img[:, :, start_x:end_x, start_y:end_y]
-                        sub_pred = net.forward(sub_img)
-                        pred[:, :, start_x:end_x, start_y:end_y] = sub_pred[:, :, :(end_x - start_x), :(end_y - start_y)]
-
-            if opt.save_img:
+                scale_factor = max(size[0] / 2048, size[1] / 2048)
+                new_size = (int(size[0] / scale_factor), int(size[1] / scale_factor))
+                resized_img = torch.nn.functional.interpolate(img, size=new_size, mode='bilinear', align_corners=False)
+                pred_resized = net.forward(resized_img)
+                pred = torch.nn.functional.interpolate(pred_resized, size=(size[0], size[1]), mode='bilinear', align_corners=False)
+            ## save img
+            if opt.save_img == True:
                 img_save = transforms.ToPILImage()(((pred[0, 0, :, :] > opt.threshold).float()).cpu())
                 if not os.path.exists(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name):
                     os.makedirs(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name)
                 img_save.save(
                     opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name + '/' + img_dir[0] + '.png')
+              
     print('Inference Done!')
    
 if __name__ == '__main__':
