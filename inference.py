@@ -52,24 +52,25 @@ def test():
     with torch.no_grad():
         for idx_iter, (img, size, img_dir) in tqdm(enumerate(test_loader)):
             img = Variable(img).cuda()
-            orig_height, orig_width = size[0], size[1]
-            pred_full = torch.zeros(1, 1, orig_height, orig_width).cuda()
-
-            if orig_height >= 2048 or orig_width >= 2048:
-                block_size = 2048
-                for i in range(0, orig_height, block_size):
-                    for j in range(0, orig_width, block_size):
-                        top, left = i, j
-                        bottom, right = min(i + block_size, orig_height), min(j + block_size, orig_width)
-                        img_block = img[:, :, top:bottom, left:right]
-                        pred_block = net.forward(img_block)
-                        pred_full[:, :, top:bottom, left:right] = pred_block.cpu()
-            else:
+            if size[0] <= 2048 and size[1] <= 2048:
                 pred = net.forward(img)
-                pred_full = pred[:, :, :orig_height, :orig_width].cpu()
+                pred = pred[:, :, :size[0], :size[1]]
+            else:
+                pred = torch.zeros(1, 1, size[0], size[1]).cuda()
+                step_x = size[0] // 4
+                step_y = size[1] // 4
+                for i in range(4):
+                    for j in range(4):
+                        start_x = i * step_x
+                        end_x = start_x + step_x
+                        start_y = j * step_y
+                        end_y = start_y + step_y
+                        sub_img = img[:, :, start_x:end_x, start_y:end_y]
+                        sub_pred = net.forward(sub_img)
+                        pred[:, :, start_x:end_x, start_y:end_y] = sub_pred[:, :, :step_x, :step_y]
 
-            if opt.save_img == True:
-                img_save = transforms.ToPILImage()((pred_full[0, 0, :, :] > opt.threshold).byte().cpu())
+            if opt.save_img:
+                img_save = transforms.ToPILImage()(((pred[0, 0, :, :] > opt.threshold).float()).cpu())
                 if not os.path.exists(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name):
                     os.makedirs(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name)
                 img_save.save(
