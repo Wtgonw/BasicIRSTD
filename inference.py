@@ -55,7 +55,7 @@ def test():
             orig_height, orig_width = size[0], size[1]
             pred_full = torch.zeros(1, 1, orig_height, orig_width).cuda()
 
-            if orig_height > 2048 or orig_width > 2048:
+            if orig_height >= 2048 or orig_width >= 2048:
                 block_size = 2048
                 for i in range(0, orig_height, block_size):
                     for j in range(0, orig_width, block_size):
