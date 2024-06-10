@@ -67,7 +67,7 @@ def test():
                         part_img = img[:, :, i:end_i, j:end_j]
                         part_pred = net.forward(part_img)
                         pred_storage.append((part_pred, i, j))
-                pred = torch.zeros(1, 1, size[0], size[1]).cuda()
+                pred = torch.zeros(1, 1, size[0], size[1])
                 for part_pred, i, j in pred_storage:
                     pred[:, :, i:i + split_size, j:j + split_size] = part_pred
 
