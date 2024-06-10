@@ -37,10 +37,10 @@ if opt.img_norm_cfg_mean != None and opt.img_norm_cfg_std != None:
   opt.img_norm_cfg['mean'] = opt.img_norm_cfg_mean
   opt.img_norm_cfg['std'] = opt.img_norm_cfg_std
   
-def test(): 
+def test():
     test_set = InferenceSetLoader(opt.dataset_dir, opt.train_dataset_name, opt.test_dataset_name, opt.img_norm_cfg)
     test_loader = DataLoader(dataset=test_set, num_workers=1, batch_size=1, shuffle=False)
-    
+
     net = Net(model_name=opt.model_name, mode='test').cuda()
     try:
         net.load_state_dict(torch.load(opt.pth_dir)['state_dict'])
@@ -48,34 +48,43 @@ def test():
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         net.load_state_dict(torch.load(opt.pth_dir, map_location=device)['state_dict'])
     net.eval()
-  
-        with torch.no_grad():
+
+    # 固定分割的大小
+    with torch.no_grad():
         for idx_iter, (img, size, img_dir) in tqdm(enumerate(test_loader)):
             img = Variable(img).cuda()
             if size[0] <= 2048 and size[1] <= 2048:
                 pred = net.forward(img)
                 pred = pred[:, :, :size[0], :size[1]]
+            elif size[0] >= 3200 or size[1] >= 3200:
+                pred = torch.zeros(1, 1, size[0], size[1]).cuda()
             else:
-                rows = []
-                for i in range(0, size[0], 512):
-                    cols = []
-                    for j in range(0, size[1], 512):
-                        segment = img[:, :, i:min(i + 512, size[0]), j:min(j + 512, size[1])]
-                        pred = net.forward(segment)
-                        cols.append(pred)
-                    col_combined = torch.cat(cols, dim=3)
-                    rows.append(col_combined)
-                pred = torch.cat(rows, dim=2)
-                pred = pred[:, :, :size[0], :size[1]]
+                pred_storage = []
+                split_size = 512
+
+                for i in range(0, size[0], split_size):
+                    for j in range(0, size[1], split_size):
+                        end_i = min(i + split_size, size[0])
+                        end_j = min(j + split_size, size[1])
+                        part_img = img[:, :, i:end_i, j:end_j]
+                        part_pred = net.forward(part_img)
+                        part_pred = part_pred.cpu()
+                        pred_storage.append((part_pred, i, j))
+                pred = torch.zeros(1, 1, size[0], size[1])
+                for part_pred, i, j in pred_storage:
+                    pred[:, :, i:i + split_size, j:j + split_size] = part_pred
+
             ### save img
             if opt.save_img == True:
                 img_save = transforms.ToPILImage()(((pred[0, 0, :, :] > opt.threshold).float()).cpu())
                 if not os.path.exists(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name):
                     os.makedirs(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name)
-                img_save.save(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name + '/' + img_dir[0] + '.png')
-              
+                img_save.save(
+                    opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name + '/' + img_dir[0] + '.png')
+
     print('Inference Done!')
-   
+
+
 if __name__ == '__main__':
     opt.f = open(opt.save_log + 'test_' + (time.ctime()).replace(' ', '_').replace(':', '_') + '.txt', 'w')
     if opt.pth_dirs == None:
@@ -111,4 +120,3 @@ if __name__ == '__main__':
                         print('\n')
                         opt.f.write('\n')
         opt.f.close()
-        
