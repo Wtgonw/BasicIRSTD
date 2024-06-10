@@ -49,8 +49,7 @@ def test():
         net.load_state_dict(torch.load(opt.pth_dir, map_location=device)['state_dict'])
     net.eval()
   
-    # 固定分割的大小
-    with torch.no_grad():
+        with torch.no_grad():
         for idx_iter, (img, size, img_dir) in tqdm(enumerate(test_loader)):
             img = Variable(img).cuda()
             if size[0] <= 2048 and size[1] <= 2048:
@@ -58,18 +57,14 @@ def test():
                 pred = pred[:, :, :size[0], :size[1]]
             else:
                 rows = []
-                split_size = 512
-                for i in range(0, size[0], split_size):
+                for i in range(0, size[0], 512):
                     cols = []
-                    for j in range(0, size[1], split_size):
-                        end_i = min(i + split_size, size[0])
-                        end_j = min(j + split_size, size[1])
-                        part_img = img[:, :, i:end_i, j:end_j]
-                        pred = net.forward(part_img)
+                    for j in range(0, size[1], 512):
+                        segment = img[:, :, i:min(i + 512, size[0]), j:min(j + 512, size[1])]
+                        pred = net.forward(segment)
                         cols.append(pred)
                     col_combined = torch.cat(cols, dim=3)
                     rows.append(col_combined)
-
                 pred = torch.cat(rows, dim=2)
                 pred = pred[:, :, :size[0], :size[1]]
             ### save img
