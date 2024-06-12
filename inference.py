@@ -49,9 +49,7 @@ def test():
         net.load_state_dict(torch.load(opt.pth_dir, map_location=device)['state_dict'])
     net.eval()
 
-    def resize_image(tensor, size, mode='bilinear'):
-        return torch.nn.functional.interpolate(tensor, size=size, mode=mode, align_corners=False)
-
+    # 固定分割的大小
     with torch.no_grad():
         for idx_iter, (img, size, img_dir) in tqdm(enumerate(test_loader)):
             img = Variable(img).cuda()
@@ -59,19 +57,27 @@ def test():
                 pred = net.forward(img)
                 pred = pred[:, :, :size[0], :size[1]]
             else:
-                scale_factor = 2048 / max(size[0], size[1])
-                new_size = (int(size[0] * scale_factor), int(size[1] * scale_factor))
-                img_resized = resize_image(img, new_size, mode='bilinear')
-                pred_resized = net.forward(img_resized)
-                pred_resized = resize_image(pred_resized, size, mode='bilinear')
+                pred_storage = []
+                split_size = 2048
+
+                for i in range(0, size[0], split_size):
+                    for j in range(0, size[1], split_size):
+                        end_i = min(i + split_size, size[0])
+                        end_j = min(j + split_size, size[1])
+                        part_img = img[:, :, i:end_i, j:end_j]
+                        part_pred = net.forward(part_img)
+                        part_pred = ((part_pred[0, 0, :, :] > opt.threshold).float()).cpu()
+                        pred_storage.append((part_pred, i, j))
+                pred = torch.zeros(1, 1, size[0], size[1])
+                for part_pred, i, j in pred_storage:
+                    pred[:, :, i:i + split_size, j:j + split_size] = part_pred
 
             ### save img
             if opt.save_img == True:
-                img_save = transforms.ToPILImage()(((pred[0, 0, :, :] > opt.threshold).float()).cpu())
+                img_save = transforms.ToPILImage()(pred[0, 0, :, :].cpu())
                 if not os.path.exists(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name):
                     os.makedirs(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name)
-                img_save.save(
-                    opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name + '/' + img_dir[0] + '.png')
+                img_save.save(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name + '/' + img_dir[0] + '.png')
 
     print('Inference Done!')
 
