@@ -59,25 +59,26 @@ def test():
             else:
                 pred_storage = []
                 split_size = 2048
-
                 for i in range(0, size[0], split_size):
                     for j in range(0, size[1], split_size):
                         end_i = min(i + split_size, size[0])
                         end_j = min(j + split_size, size[1])
-                        part_img = img[:, :, i:end_i, j:end_j]
+                        part_img = torch.zeros(img.size(0), img.size(1), split_size, split_size).cuda()
+                        part_img[:, :, :end_i - i, :end_j - j] = img[:, :, i:end_i, j:end_j]
                         part_pred = net.forward(part_img)
-                        part_pred = ((part_pred[0, 0, :, :] > opt.threshold).float()).cpu()
+                        part_pred = part_pred[:, :, :end_i - i, :end_j - j].cpu()
                         pred_storage.append((part_pred, i, j))
                 pred = torch.zeros(1, 1, size[0], size[1])
                 for part_pred, i, j in pred_storage:
-                    pred[:, :, i:i + split_size, j:j + split_size] = part_pred
+                    pred[:, :, i:i + part_pred.size(2), j:j + part_pred.size(3)] = part_pred
 
             ### save img
             if opt.save_img == True:
-                img_save = transforms.ToPILImage()(pred[0, 0, :, :].cpu())
+                img_save = transforms.ToPILImage()(((pred[0, 0, :, :] > opt.threshold).float()).cpu())
                 if not os.path.exists(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name):
                     os.makedirs(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name)
-                img_save.save(opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name + '/' + img_dir[0] + '.png')
+                img_save.save(
+                    opt.save_img_dir + opt.test_dataset_name + '/' + opt.model_name + '/' + img_dir[0] + '.png')
 
     print('Inference Done!')
 
