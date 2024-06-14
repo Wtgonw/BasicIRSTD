@@ -49,7 +49,6 @@ def test():
         net.load_state_dict(torch.load(opt.pth_dir, map_location=device)['state_dict'])
     net.eval()
 
-    # 固定分割的大小
     with torch.no_grad():
         for idx_iter, (img, size, img_dir) in tqdm(enumerate(test_loader)):
             img = Variable(img).cuda()
@@ -58,19 +57,19 @@ def test():
                 pred = pred[:, :, :size[0], :size[1]]
             else:
                 pred_storage = []
-                split_size = 2048
+                split_size = 1024
+
                 for i in range(0, size[0], split_size):
                     for j in range(0, size[1], split_size):
                         end_i = min(i + split_size, size[0])
                         end_j = min(j + split_size, size[1])
-                        part_img = torch.zeros(img.size(0), img.size(1), split_size, split_size).cuda()
-                        part_img[:, :, :end_i - i, :end_j - j] = img[:, :, i:end_i, j:end_j]
+                        part_img = img[:, :, i:end_i, j:end_j]
                         part_pred = net.forward(part_img)
-                        part_pred = part_pred[:, :, :end_i - i, :end_j - j].cpu()
+                        part_pred = part_pred.cpu()
                         pred_storage.append((part_pred, i, j))
                 pred = torch.zeros(1, 1, size[0], size[1])
                 for part_pred, i, j in pred_storage:
-                    pred[:, :, i:i + part_pred.size(2), j:j + part_pred.size(3)] = part_pred
+                    pred[:, :, i:i + split_size, j:j + split_size] = part_pred
 
             ### save img
             if opt.save_img == True:
