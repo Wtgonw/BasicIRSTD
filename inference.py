@@ -56,20 +56,7 @@ def test():
                 pred = net.forward(img)
                 pred = pred[:, :, :size[0], :size[1]]
             else:
-                pred_storage = []
-                split_size = 1024
-
-                for i in range(0, size[0], split_size):
-                    for j in range(0, size[1], split_size):
-                        end_i = min(i + split_size, size[0])
-                        end_j = min(j + split_size, size[1])
-                        part_img = img[:, :, i:end_i, j:end_j]
-                        part_pred = net.forward(part_img)
-                        part_pred = part_pred.cpu()
-                        pred_storage.append((part_pred, i, j))
-                pred = torch.zeros(1, 1, size[0], size[1])
-                for part_pred, i, j in pred_storage:
-                    pred[:, :, i:i + split_size, j:j + split_size] = part_pred
+                pred = torch.zeros(1, 1, size[0], size[1]).cuda()
 
             ### save img
             if opt.save_img == True:
